@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { cn } from '../src/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { HighlightedText } from './HighlightedText';
 
 interface PromptSectionProps {
     title: string;
@@ -86,16 +87,7 @@ const PromptSection: React.FC<PromptSectionProps> = ({ title, content, onEdit, c
                             className="text-sm text-muted-foreground leading-relaxed group-hover:text-foreground/90 transition-colors"
                         >
                             {content ? (
-                                content.split(/(\*[^*]+\*)/g).map((part, i) => {
-                                    if (part.startsWith('*') && part.endsWith('*')) {
-                                        return (
-                                            <span key={i} className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 animate-pulse shadow-[0_0_10px_rgba(168,85,247,0.2)]">
-                                                {part.slice(1, -1)}
-                                            </span>
-                                        );
-                                    }
-                                    return <span key={i}>{part}</span>;
-                                })
+                                <HighlightedText text={content} />
                             ) : (
                                 <span className="italic opacity-50">Waiting for input...</span>
                             )}

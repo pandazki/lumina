@@ -85,6 +85,7 @@ export const expandPrompt = async (
       responseMimeType: "application/json",
       responseSchema: PROMPT_SCHEMA,
       temperature: 0.7,
+      maxOutputTokens: 4096,
     }
   });
 
@@ -165,8 +166,17 @@ export const expandPrompt = async (
     const final = JSON.parse(accumulatedText) as PromptStructure;
     return final;
   } catch (e) {
-    console.warn("Final JSON parse failed, returning partial", e);
-    // If parse fails, return what we have, filling missing keys with empty strings
+    console.warn("Final JSON parse failed", e);
+
+    // Check if we have enough data to proceed
+    const requiredKeys = ["subject", "environment", "atmosphere", "microDetails", "techSpecs", "colorGrading", "composition"];
+    const missingKeys = requiredKeys.filter(k => !partialStructure[k as keyof PromptStructure]);
+
+    if (missingKeys.length > 2) { // Allow at most 2 missing keys before failing
+      throw new Error(`Generation incomplete. Missing keys: ${missingKeys.join(", ")}`);
+    }
+
+    // If parse fails but we have most data, return what we have
     return {
       subject: partialStructure.subject || "",
       environment: partialStructure.environment || "",

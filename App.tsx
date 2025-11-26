@@ -9,15 +9,16 @@ import { ScrollArea } from './components/ui/scroll-area';
 import { Separator } from './components/ui/separator';
 import { cn } from './src/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CinematicTreatment } from './components/CinematicTreatment';
 
 const DEFAULT_PROMPT: PromptStructure = {
-  subject: "Waiting for input...",
-  environment: "...",
-  atmosphere: "...",
-  microDetails: "...",
-  techSpecs: "...",
-  colorGrading: "...",
-  composition: "..."
+  subject: "",
+  environment: "",
+  atmosphere: "",
+  microDetails: "",
+  techSpecs: "",
+  colorGrading: "",
+  composition: ""
 };
 
 const App: React.FC = () => {
@@ -105,6 +106,12 @@ const App: React.FC = () => {
     document.body.removeChild(textLink);
   };
 
+
+
+  // ...
+
+  const isCinematicMode = appState === 'expanding_prompt' || appState === 'generating_image';
+
   return (
     <div className="flex h-screen w-full bg-[#09090b] text-foreground overflow-hidden font-sans selection:bg-purple-500/30">
       {/* Background Gradients */}
@@ -115,8 +122,12 @@ const App: React.FC = () => {
       </div>
 
       {/* Sidebar - Director's Treatment */}
-      <aside className="w-96 border-r border-white/10 bg-zinc-900/50 backdrop-blur-xl flex flex-col z-10 hidden lg:flex transition-all duration-300">
-        <div className="p-6 border-b border-white/10">
+      {/* Hidden during cinematic mode */}
+      <aside className={cn(
+        "border-r border-white/10 bg-zinc-900/50 backdrop-blur-xl flex flex-col z-10 hidden lg:flex transition-all duration-500 ease-in-out overflow-hidden",
+        isCinematicMode ? "w-0 opacity-0 border-none" : "w-96 opacity-100"
+      )}>
+        <div className="p-6 border-b border-white/10 min-w-[24rem]">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-yellow-400 to-orange-600 flex items-center justify-center shadow-[0_0_20px_rgba(255,165,0,0.3)] ring-1 ring-white/20">
               <Aperture className="text-black h-6 w-6" />
@@ -128,7 +139,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-w-[24rem]">
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
@@ -216,69 +227,65 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Image Preview Area */}
+        {/* Content Area */}
         <div className="flex-1 flex items-center justify-center p-6 lg:p-10 overflow-hidden relative">
-          <div
-            ref={imageRef}
-            className="relative w-full h-full max-w-5xl max-h-[calc(100vh-12rem)] rounded-2xl overflow-hidden border border-white/10 bg-zinc-950/50 shadow-2xl flex items-center justify-center group ring-1 ring-white/5"
-          >
-            {/* State: IDLE */}
-            {appState === 'idle' && (
-              <div className="text-center opacity-40 flex flex-col items-center gap-4">
-                <div className="h-24 w-24 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                  <ImageIcon className="h-10 w-10 text-zinc-400" />
-                </div>
-                <p className="text-lg font-light tracking-wide text-zinc-400">Ready to visualize your imagination</p>
-              </div>
-            )}
-
-            {/* State: LOADING */}
-            <AnimatePresence>
-              {(appState === 'expanding_prompt' || appState === 'generating_image') && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 z-20 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center gap-6"
-                >
-                  <div className="relative">
-                    <Loader2 className="h-16 w-16 text-purple-500 animate-spin" />
-                    <div className="absolute inset-0 h-16 w-16 rounded-full border-2 border-yellow-500/50 animate-ping opacity-20"></div>
+          <AnimatePresence mode="wait">
+            {isCinematicMode ? (
+              <motion.div
+                key="cinematic"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="w-full h-full"
+              >
+                <CinematicTreatment
+                  promptData={promptData}
+                  status={appState === 'generating_image' ? 'generating' : 'streaming'}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="preview"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="relative w-full h-full max-w-5xl max-h-[calc(100vh-12rem)] rounded-2xl overflow-hidden border border-white/10 bg-zinc-950/50 shadow-2xl flex items-center justify-center group ring-1 ring-white/5"
+              >
+                {/* State: IDLE */}
+                {appState === 'idle' && (
+                  <div className="text-center opacity-40 flex flex-col items-center gap-4">
+                    <div className="h-24 w-24 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                      <ImageIcon className="h-10 w-10 text-zinc-400" />
+                    </div>
+                    <p className="text-lg font-light tracking-wide text-zinc-400">Ready to visualize your imagination</p>
                   </div>
-                  <div className="space-y-2 text-center">
-                    <p className="text-xl font-light text-white animate-pulse">{loadingMsg}</p>
-                    <p className="text-xs text-zinc-500 uppercase tracking-widest">Gemini 3 Pro Processing</p>
+                )}
+
+                {/* State: ERROR */}
+                {appState === 'error' && (
+                  <div className="text-red-400 text-center px-6">
+                    <p className="font-bold text-xl mb-2">Generation Failed</p>
+                    <p className="text-sm opacity-70">The connection to the creative matrix was interrupted.</p>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                )}
 
-            {/* State: ERROR */}
-            {appState === 'error' && (
-              <div className="text-red-400 text-center px-6">
-                <p className="font-bold text-xl mb-2">Generation Failed</p>
-                <p className="text-sm opacity-70">The connection to the creative matrix was interrupted.</p>
-              </div>
+                {/* State: COMPLETE */}
+                {imageUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="relative w-full h-full"
+                  >
+                    <img
+                      src={imageUrl}
+                      alt="Generated Masterpiece"
+                      className="w-full h-full object-contain"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  </motion.div>
+                )}
+              </motion.div>
             )}
-
-            {/* State: COMPLETE */}
-            <AnimatePresence>
-              {imageUrl && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative w-full h-full"
-                >
-                  <img
-                    src={imageUrl}
-                    alt="Generated Masterpiece"
-                    className="w-full h-full object-contain"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          </AnimatePresence>
         </div>
 
         {/* Floating Input Bar */}
