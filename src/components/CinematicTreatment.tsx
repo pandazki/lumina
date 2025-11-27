@@ -36,7 +36,7 @@ export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptDa
     return (
         <div className="w-full h-full flex flex-col items-center justify-center p-8 relative overflow-hidden">
             {/* Background Ambient */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-purple-900/5 to-black/0 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-amber-900/5 to-black/0 pointer-events-none" />
 
             {/* Initializing State */}
             <AnimatePresence>
@@ -45,13 +45,13 @@ export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptDa
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/50 backdrop-blur-sm"
+                        className="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/80 backdrop-blur-md"
                     >
                         <div className="relative">
-                            <div className="absolute inset-0 bg-purple-500/20 blur-xl rounded-full animate-pulse" />
-                            <Zap className="h-12 w-12 text-purple-400 animate-bounce relative z-10" />
+                            <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full animate-pulse" />
+                            <Zap className="h-12 w-12 text-amber-500 animate-bounce relative z-10" />
                         </div>
-                        <p className="mt-4 text-sm font-mono text-purple-300 tracking-widest uppercase animate-pulse">
+                        <p className="mt-4 text-sm font-mono text-amber-500/80 tracking-widest uppercase animate-pulse">
                             Establishing Neural Link...
                         </p>
                     </motion.div>
@@ -60,11 +60,11 @@ export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptDa
 
 
 
-            <div className="w-full max-w-4xl h-full flex flex-col relative z-0">
+            <div className="w-full max-w-4xl h-full flex flex-col relative z-10">
                 <motion.h2
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-2xl font-light text-zinc-400 mb-8 text-center uppercase tracking-[0.3em]"
+                    className="text-2xl font-light text-stone-400 mb-8 text-center uppercase tracking-[0.3em] font-serif"
                 >
                     Director's Treatment
                 </motion.h2>
@@ -80,8 +80,8 @@ export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptDa
                                     transition={{ delay: index * 0.1 }}
                                     className="group"
                                 >
-                                    <h3 className="text-sm font-bold text-purple-500 uppercase tracking-widest mb-3 flex items-center gap-3">
-                                        <span className="h-[1px] w-8 bg-purple-500/50" />
+                                    <h3 className="text-sm font-bold text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-3">
+                                        <span className="h-[1px] w-8 bg-amber-600/50" />
                                         {section.title}
                                     </h3>
                                     <div className="pl-11 text-lg md:text-xl lg:text-2xl font-light leading-relaxed text-zinc-200">

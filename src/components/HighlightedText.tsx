@@ -15,7 +15,7 @@ export const HighlightedText: React.FC<HighlightedTextProps> = ({ text, classNam
                     return (
                         <span
                             key={i}
-                            className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 animate-pulse shadow-[0_0_10px_rgba(168,85,247,0.2)]"
+                            className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-400 animate-pulse drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]"
                         >
                             {part.slice(1, -1)}
                         </span>

@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="public/logo.png" alt="Lumina PRO Logo" width="120" height="120" />
+</div>
+
 # Lumina PRO
 
 **AI 驱动的电影级提示词工程**

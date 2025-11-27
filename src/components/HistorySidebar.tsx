@@ -44,7 +44,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     >
                         <div className="p-4 border-b border-white/10 flex items-center justify-between">
                             <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-widest flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-purple-500" />
+                                <Clock className="w-4 h-4 text-amber-500" />
                                 History
                             </h2>
                             <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-white/10">
@@ -67,7 +67,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.9 }}
-                                            className="group relative rounded-lg overflow-hidden border border-white/10 bg-zinc-900/50 hover:border-purple-500/50 transition-colors"
+                                            className="group relative rounded-lg overflow-hidden border border-white/10 bg-zinc-900/50 hover:border-amber-500/50 transition-colors"
                                         >
                                             <div
                                                 className="aspect-video w-full cursor-pointer relative bg-zinc-900"
@@ -75,7 +75,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                                             >
                                                 {item.status === 'generating' ? (
                                                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                                                        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                                        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                                                         <span className="text-xs text-zinc-400 animate-pulse">Developing...</span>
                                                     </div>
                                                 ) : (

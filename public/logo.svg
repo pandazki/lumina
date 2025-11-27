@@ -1,0 +1,49 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- The "Hot" Filament Gradient -->
+    <linearGradient id="edge-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="20%" stop-color="#FCD34D" /> <!-- Amber-300 -->
+      <stop offset="50%" stop-color="#D97706" /> <!-- Amber-600 -->
+      <stop offset="100%" stop-color="#78350F" /> <!-- Amber-900 -->
+    </linearGradient>
+
+    <!-- Dark Glass Body Gradient -->
+    <linearGradient id="glass-body" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#292524" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.95" />
+    </linearGradient>
+
+    <!-- Volumetric Glow -->
+    <filter id="volumetric" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="20" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Ambient Glow Behind -->
+  <circle cx="256" cy="256" r="180" fill="#D97706" fill-opacity="0.15" filter="url(#volumetric)" />
+
+  <!-- The Monolith (Main Body) -->
+  <path d="M256 60 L450 420 H62 Z" fill="url(#glass-body)" />
+
+  <!-- Inner Depth / Refraction (Subtle) -->
+  <path d="M256 60 L450 420 H62 Z" stroke="url(#edge-glow)" stroke-width="2" stroke-opacity="0.3" transform="scale(0.8) translate(51, 40)" />
+
+  <!-- Rim Lighting (The "Expensive" Look) -->
+  <!-- Left Edge (Hot) -->
+  <path d="M256 60 L62 420" stroke="url(#edge-glow)" stroke-width="8" stroke-linecap="round" filter="url(#volumetric)" opacity="0.8" />
+  <path d="M256 60 L62 420" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.9" />
+
+  <!-- Right Edge (Warm) -->
+  <path d="M256 60 L450 420" stroke="#D97706" stroke-width="4" stroke-linecap="round" opacity="0.6" />
+
+  <!-- Bottom Edge (Ground Reflection) -->
+  <path d="M62 420 H450" stroke="#78350F" stroke-width="4" stroke-linecap="round" opacity="0.4" />
+
+  <!-- Cinematic Flare (Diagonal) -->
+  <path d="M180 200 L332 320" stroke="#FCD34D" stroke-width="1" opacity="0.4" style="mix-blend-mode: overlay;" />
+  
+  <!-- Specular Highlight (The "Bling") -->
+  <circle cx="256" cy="60" r="12" fill="white" filter="url(#volumetric)" opacity="0.8" />
+</svg>

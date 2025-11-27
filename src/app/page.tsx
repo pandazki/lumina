@@ -172,7 +172,7 @@ export default function Home() {
     }
   };
 
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (count: number = 1) => {
     if (!promptData.subject) return;
 
     const sessionId = crypto.randomUUID();
@@ -180,47 +180,72 @@ export default function Home() {
 
     setAppState('generating_image');
 
-    // Add Placeholder
-    const placeholderId = crypto.randomUUID();
-    const placeholderItem: HistoryItem = {
-      id: placeholderId,
+    // Create placeholders for all requested images
+    const placeholders: HistoryItem[] = Array.from({ length: count }).map(() => ({
+      id: crypto.randomUUID(),
       promptData: promptData,
       prompt: userInput,
       imageUrl: '',
       timestamp: Date.now(),
       status: 'generating',
       referenceImages: referenceImages
-    };
-    setHistory(prev => [placeholderItem, ...prev]);
+    }));
+
+    // Add all placeholders to history at once
+    setHistory(prev => [...placeholders, ...prev]);
 
     try {
-      const imageUrl = await generateImage(promptData, referenceImages);
+      // Launch parallel generation requests
+      const promises = placeholders.map(async (placeholder) => {
+        try {
+          const imageUrl = await generateImage(promptData, referenceImages);
 
-      // Update History
-      setHistory(prev => prev.map(item =>
-        item.id === placeholderId
-          ? { ...item, imageUrl, status: 'complete' }
-          : item
-      ));
+          // Update individual history item upon completion
+          setHistory(prev => prev.map(item =>
+            item.id === placeholder.id
+              ? { ...item, imageUrl, status: 'complete' }
+              : item
+          ));
 
-      if (activeSessionId.current === sessionId) {
-        setGeneratedImage(imageUrl);
-        setAppState('complete');
-      } else {
-        toast.success("Regeneration complete", {
-          action: {
-            label: "View",
-            onClick: () => {
-              activeSessionId.current = sessionId;
-              setGeneratedImage(imageUrl);
-              setAppState('complete');
+          return { id: placeholder.id, imageUrl, success: true };
+        } catch (err) {
+          console.error(`Generation failed for ${placeholder.id}`, err);
+          // Remove failed item
+          setHistory(prev => prev.filter(item => item.id !== placeholder.id));
+          return { id: placeholder.id, success: false };
+        }
+      });
+
+      const results = await Promise.all(promises);
+      const successful = results.filter(r => r.success && r.imageUrl);
+
+      if (successful.length > 0) {
+        // If the session is still active, show the first successful image
+        if (activeSessionId.current === sessionId) {
+          // @ts-ignore
+          setGeneratedImage(successful[0].imageUrl);
+          setAppState('complete');
+        } else {
+          toast.success(`${successful.length} image(s) regenerated`, {
+            action: {
+              label: "View",
+              onClick: () => {
+                activeSessionId.current = sessionId;
+                // @ts-ignore
+                setGeneratedImage(successful[0].imageUrl);
+                setAppState('complete');
+              }
             }
-          }
-        });
+          });
+        }
+      } else {
+        if (activeSessionId.current === sessionId) {
+          setAppState('error');
+        }
       }
+
     } catch (error) {
       console.error("Regeneration failed:", error);
-      setHistory(prev => prev.filter(item => item.id !== placeholderId));
       if (activeSessionId.current === sessionId) {
         setAppState('error');
       }
@@ -278,10 +303,11 @@ export default function Home() {
     setUserInput(item.prompt);
     setReferenceImages(item.referenceImages || []);
     setAppState('complete');
-    setIsHistoryOpen(false); // Keep sidebar open as requested
+    // setIsHistoryOpen(false); // Keep sidebar open as requested
   };
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showRegenerateMenu, setShowRegenerateMenu] = useState(false);
 
   // Close fullscreen on Escape
   useEffect(() => {
@@ -293,7 +319,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-purple-500/30 overflow-hidden flex">
+    <div className="h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-amber-500/30 overflow-hidden flex">
 
       {/* Main Content */}
       <div className={cn(
@@ -303,12 +329,12 @@ export default function Home() {
 
         {/* Header */}
         <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-zinc-950/50 backdrop-blur-md z-10 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
-              <Wand2 className="h-4 w-4 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 relative overflow-hidden rounded-full">
+              <img src="/logo.png" alt="Lumina Logo" className="w-full h-full object-cover mix-blend-screen scale-150" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
-              Lumina <span className="text-purple-500 text-xs font-mono uppercase tracking-widest ml-1">PRO</span>
+            <h1 className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-stone-200 to-stone-500 font-serif">
+              Lumina <span className="text-amber-500 text-xs font-mono uppercase tracking-widest ml-1 font-sans">PRO</span>
             </h1>
           </div>
 
@@ -346,7 +372,7 @@ export default function Home() {
                 className="border-r border-white/5 bg-zinc-900/30 backdrop-blur-sm flex flex-col z-20 h-full"
               >
                 <div className="p-4 border-b border-white/5 flex items-center justify-between flex-shrink-0">
-                  <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Director's Treatment</h2>
+                  <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest font-serif">Director's Treatment</h2>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -429,10 +455,60 @@ export default function Home() {
                           <Code className="w-4 h-4" />
                         </Button>
                       </div>
-                      <Button onClick={handleRegenerate} disabled={isGlobalGenerating} variant="default" className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full px-6 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {isGlobalGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                        Regenerate
-                      </Button>
+                      <div className="flex items-center bg-gradient-to-r from-amber-700 to-amber-600 rounded-full shadow-lg shadow-amber-900/20 border border-amber-500/20 p-0.5">
+                        <Button
+                          onClick={() => handleRegenerate(1)}
+                          disabled={isGlobalGenerating}
+                          variant="ghost"
+                          className="gap-2 text-white hover:bg-white/10 rounded-l-full px-4 h-9 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isGlobalGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                          Regenerate
+                        </Button>
+                        <div className="h-4 w-[1px] bg-white/20" />
+                        <div
+                          className="relative h-full"
+                          onMouseEnter={() => setShowRegenerateMenu(true)}
+                          onMouseLeave={() => setShowRegenerateMenu(false)}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 px-2 text-white hover:bg-white/10 rounded-r-full"
+                          >
+                            <span className="text-xs font-mono opacity-80">x1</span>
+                          </Button>
+
+                          {/* Hover Menu */}
+                          <AnimatePresence>
+                            {showRegenerateMenu && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                transition={{ duration: 0.2, ease: "circOut" }}
+                                className="absolute bottom-full right-0 mb-1 w-14 bg-zinc-950/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/50 flex flex-col-reverse p-1 gap-1"
+                              >
+                                {[1, 2, 3, 4].map((num) => (
+                                  <button
+                                    key={num}
+                                    onClick={() => {
+                                      handleRegenerate(num);
+                                      setShowRegenerateMenu(false);
+                                    }}
+                                    className="w-full h-8 flex items-center justify-center text-xs font-mono text-zinc-400 hover:text-amber-400 hover:bg-white/5 transition-colors rounded-lg"
+                                  >
+                                    x{num}
+                                  </button>
+                                ))}
+                                <div className="text-[10px] text-center text-zinc-600 font-sans uppercase tracking-wider py-1 border-b border-white/5 mb-1">
+                                  Batch
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 ) : (
@@ -457,8 +533,8 @@ export default function Home() {
             {/* Input Bar */}
             <div className="p-6 pb-8 max-w-4xl mx-auto w-full relative z-40">
               <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
-                <div className="relative flex gap-2 bg-zinc-900/90 backdrop-blur-xl py-2 pl-2 pr-3 rounded-xl border border-white/10 shadow-2xl items-center">
+                <div className="absolute -inset-1 bg-gradient-to-r from-amber-600/20 to-yellow-600/20 rounded-xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+                <div className="relative flex gap-2 bg-stone-900/90 backdrop-blur-xl py-2 pl-2 pr-3 rounded-xl border border-white/5 shadow-2xl items-center">
                   <div className="relative flex-1 min-w-0">
                     {/* Overlay for collapsed state (Truncated view) */}
                     <AnimatePresence>
