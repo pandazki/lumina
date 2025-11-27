@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { PromptStructure } from '../types';
+import { PromptStructure } from '@/types';
 import { HighlightedText } from './HighlightedText';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScrollArea } from './ui/scroll-area';

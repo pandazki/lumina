@@ -1,108 +1,83 @@
-# Lumina PRO - AI Cinematic Director
+# Lumina PRO
 
-Lumina PRO is a premium AI drawing application that acts as your personal visual director. It takes simple concepts and expands them into highly detailed, cinematic treatments before generating high-fidelity images using Google's Gemini 3 Pro models.
+**AI-Powered Cinematic Prompt Engineering**
 
-> [!WARNING]
-> **Security Note**: This is a client-side demo application. The Gemini API key is injected into the frontend bundle during the build process. **Do not deploy this to a public production environment** without implementing a backend proxy to secure your API key.
+Lumina PRO is a sophisticated tool designed to transform simple concepts into highly detailed, premium-quality image generation prompts. It leverages the power of Google's Gemini 3.0 Pro model to act as a virtual visual director, expanding your ideas with cinematic lighting, composition, and technical specifications.
 
 ## Features
 
-- **Cinematic Treatment**: Real-time streaming of detailed prompt breakdowns (Subject, Atmosphere, Camera, etc.).
-- **Adaptive Style**: Automatically adapts terminology and details to your requested style (e.g., Manga, Photorealism, 3D Render).
-- **Visual Highlights**: Automatically highlights key visual elements (colors, lighting) with glowing effects.
-- **Immersive UI**: Deep dark mode, glassmorphism, and smooth animations powered by Framer Motion.
-- **Robust Generation**: Smart handling of AI streaming and image generation to ensure complete results.
-
-## Prerequisites
-
-- **Node.js** (v18 or higher) or **Bun** (v1.0 or higher)
-- A **Google Gemini API Key** (Get one at [Google AI Studio](https://aistudio.google.com/))
-
-## Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone <repository-url>
-cd lumina
-```
-
-### 2. Configure Environment
-
-Copy the example environment file and add your API key:
-
-```bash
-cp .env.example .env.local
-```
-
-Open `.env.local` and paste your API key:
-```env
-VITE_GEMINI_API_KEY=your_actual_api_key_here
-```
-
-### 3. Install Dependencies
-
-You can use your preferred package manager:
-
-**npm**
-```bash
-npm install
-```
-
-**pnpm**
-```bash
-pnpm install
-```
-
-**bun** (Recommended)
-```bash
-bun install
-```
-
-### 4. Run Development Server
-
-Start the local development server:
-
-**npm**
-```bash
-npm run dev
-```
-
-**pnpm**
-```bash
-pnpm dev
-```
-
-**bun**
-```bash
-bun dev
-```
-
-The application will be available at `http://localhost:3000`.
-
-## Building for Production
-
-To create a production build:
-
-**npm**
-```bash
-npm run build
-```
-
-**pnpm**
-```bash
-pnpm build
-```
-
-**bun**
-```bash
-bun run build
-```
+-   **Intelligent Prompt Expansion**: Converts brief inputs into comprehensive "Director's Treatment" prompts.
+-   **Cinematic Visualization**: Generates high-fidelity previews using Gemini's image generation capabilities.
+-   **History & Management**: Automatically saves your creations with options to regenerate, delete, or download.
+-   **Bulk Export**: Download all your generated assets (images and JSON prompts) in a single ZIP file.
+-   **Fullscreen View**: Immersive viewing experience for generated images.
+-   **Secure Architecture**: Server-side API handling ensures your API keys remain private.
 
 ## Tech Stack
 
-- **Framework**: React + Vite
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS + Shadcn UI
-- **Animations**: Framer Motion
-- **AI**: Google GenAI SDK (Gemini 3 Pro)
+-   **Framework**: [Next.js 14+](https://nextjs.org/) (App Router)
+-   **Language**: TypeScript
+-   **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+-   **Runtime**: [Bun](https://bun.sh/)
+-   **AI Model**: Google Gemini 3.0 Pro (`gemini-3-pro-preview` & `gemini-3-pro-image-preview`)
+-   **UI Components**: Shadcn UI, Lucide React, Framer Motion
+
+## Getting Started
+
+### Prerequisites
+
+-   [Bun](https://bun.sh/) installed.
+-   A Google Gemini API Key.
+
+### Installation
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone <repository-url>
+    cd lumina
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    bun install
+    ```
+
+3.  **Configure Environment Variables:**
+
+    Copy the example environment file and add your API key:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Edit `.env` and set your `GEMINI_API_KEY`:
+
+    ```env
+    GEMINI_API_KEY=your_actual_api_key_here
+    ```
+
+4.  **Run the Development Server:**
+
+    ```bash
+    bun run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Docker Support
+
+Build and run the containerized application:
+
+```bash
+# Build the image
+docker build -t lumina-pro .
+
+# Run the container (passing the API key)
+docker run -p 3000:3000 -e GEMINI_API_KEY=your_key_here lumina-pro
+```
+
+## License
+
+MIT

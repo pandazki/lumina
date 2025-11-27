@@ -22,7 +22,8 @@ export type AppState =
 
 export interface HistoryItem {
   id: string;
-  promptData: PromptStructure;
-  imageUrl: string;
   timestamp: number;
+  prompt: string;
+  imageUrl: string;
+  promptData: any; // Store the full prompt structure
 }

@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HistoryItem } from '../types';
+import { HistoryItem } from '@/types';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import { Trash2, X, Clock } from 'lucide-react';
-import { cn } from '../src/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface HistorySidebarProps {
     isOpen: boolean;
@@ -47,7 +47,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                                 <Clock className="w-4 h-4 text-purple-500" />
                                 History
                             </h2>
-                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-zinc-400 hover:text-white">
+                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-white/10">
                                 <X className="w-4 h-4" />
                             </Button>
                         </div>

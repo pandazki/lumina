@@ -1,16 +1,15 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { PromptStructure, AppState, HistoryItem } from './types';
-import { expandPrompt, generateImage } from './services/geminiService';
-import { PromptSection } from './components/PromptSection';
-import { Button } from './components/ui/button';
-import { Input } from './components/ui/input';
-import { Card, CardContent } from './components/ui/card';
-import { ScrollArea } from './components/ui/scroll-area';
-import { Separator } from './components/ui/separator';
-import { cn } from './src/lib/utils';
+import { PromptStructure, AppState, HistoryItem } from '@/types';
+import { expandPrompt, generateImage } from '@/services/geminiService';
+import { PromptSection } from '@/components/PromptSection';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CinematicTreatment } from './components/CinematicTreatment';
-import { HistorySidebar } from './components/HistorySidebar';
+import { CinematicTreatment } from '@/components/CinematicTreatment';
+import { HistorySidebar } from '@/components/HistorySidebar';
 import {
   Wand2,
   Image as ImageIcon,
@@ -20,7 +19,6 @@ import {
   ChevronRight,
   Loader2,
   History as HistoryIcon,
-  Trash2,
   Maximize2,
   X
 } from 'lucide-react';
@@ -37,7 +35,7 @@ const DEFAULT_PROMPT: PromptStructure = {
   composition: ""
 };
 
-const App: React.FC = () => {
+export default function Home() {
   const [userInput, setUserInput] = useState("");
   const [promptData, setPromptData] = useState<PromptStructure>(DEFAULT_PROMPT);
   const [appState, setAppState] = useState<AppState>('idle');
@@ -77,6 +75,7 @@ const App: React.FC = () => {
       const newItem: HistoryItem = {
         id: crypto.randomUUID(),
         promptData: finalPrompt,
+        prompt: userInput,
         imageUrl: imageUrl,
         timestamp: Date.now()
       };
@@ -101,6 +100,7 @@ const App: React.FC = () => {
       const newItem: HistoryItem = {
         id: crypto.randomUUID(),
         promptData: promptData,
+        prompt: userInput,
         imageUrl: imageUrl,
         timestamp: Date.now()
       };
@@ -111,9 +111,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateSection = (section: keyof PromptStructure, value: string) => {
-    setPromptData(prev => ({ ...prev, [section]: value }));
-  };
+
 
   const handleDownload = (type: 'image' | 'json') => {
     if (type === 'image' && generatedImage) {
@@ -252,8 +250,6 @@ const App: React.FC = () => {
                           key={key}
                           title={key}
                           content={value}
-                          isEditing={false}
-                          onUpdate={(val) => handleUpdateSection(key as keyof PromptStructure, val)}
                         />
                       ))
                     )}
@@ -342,12 +338,12 @@ const App: React.FC = () => {
             <div className="p-6 pb-8 max-w-4xl mx-auto w-full relative z-40">
               <div className="relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
-                <div className="relative flex gap-2 bg-zinc-900/90 backdrop-blur-xl p-2 rounded-xl border border-white/10 shadow-2xl items-end">
+                <div className="relative flex gap-2 bg-zinc-900/90 backdrop-blur-xl py-2 pl-2 pr-3 rounded-xl border border-white/10 shadow-2xl items-center">
                   <div className="relative flex-1 min-w-0">
                     {/* Overlay for collapsed state (Truncated view) */}
                     {!isInputFocused && (
-                      <div className="absolute inset-0 py-3 px-4 text-lg pointer-events-none truncate leading-relaxed text-zinc-100">
-                        {userInput || <span className="text-zinc-600">Describe your scene (e.g., 'A cyberpunk street food vendor in Tokyo, neon rain, cinematic lighting')...</span>}
+                      <div className="absolute inset-0 py-2.5 px-4 text-lg pointer-events-none truncate text-zinc-100">
+                        {userInput || <span className="text-zinc-600">Describe your scene...</span>}
                       </div>
                     )}
 
@@ -378,9 +374,9 @@ const App: React.FC = () => {
                       // Hide placeholder in textarea since we show it in the overlay when collapsed
                       // When focused, the overlay is hidden, so we need placeholder here too? 
                       // Actually, when focused, we want standard behavior.
-                      placeholder={isInputFocused ? "Describe your scene (e.g., 'A cyberpunk street food vendor in Tokyo, neon rain, cinematic lighting')..." : ""}
+                      placeholder={isInputFocused ? "Describe your scene (e.g., 'A cyberpunk street food vendor in Tokyo...')" : ""}
                       className={cn(
-                        "w-full bg-transparent border-none text-lg resize-none focus:ring-0 focus:outline-none placeholder:text-zinc-600 py-3 px-4 leading-relaxed transition-[height] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] scrollbar-hide",
+                        "w-full bg-transparent border-none text-lg resize-none focus:ring-0 focus:outline-none placeholder:text-zinc-600 py-2.5 px-4 transition-[height] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] scrollbar-hide",
                         isInputFocused ? "max-h-[200px] overflow-y-auto opacity-100" : "h-12 overflow-hidden opacity-0 cursor-text"
                       )}
                       onKeyDown={(e) => {
@@ -458,6 +454,4 @@ const App: React.FC = () => {
 
     </div>
   );
-};
-
-export default App;
+}
