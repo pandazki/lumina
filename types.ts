@@ -13,15 +13,16 @@ export interface PromptStructure {
   composition: string;
 }
 
-export type AppState = 
-  | 'idle' 
-  | 'expanding_prompt' 
-  | 'generating_image' 
-  | 'complete' 
+export type AppState =
+  | 'idle'
+  | 'expanding_prompt'
+  | 'generating_image'
+  | 'complete'
   | 'error';
 
 export interface HistoryItem {
+  id: string;
+  promptData: PromptStructure;
   imageUrl: string;
-  prompt: PromptStructure;
   timestamp: number;
 }

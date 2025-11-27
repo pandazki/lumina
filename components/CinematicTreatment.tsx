@@ -12,7 +12,7 @@ interface CinematicTreatmentProps {
 
 export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptData, status }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
-    const hasStarted = Object.values(promptData).some(val => val.length > 0);
+    const hasStarted = (Object.values(promptData) as string[]).some(val => val.length > 0);
 
     // Auto-scroll to bottom as content streams in
     useEffect(() => {
@@ -56,31 +56,7 @@ export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptDa
                 )}
             </AnimatePresence>
 
-            {/* Generating Image State */}
-            <AnimatePresence>
-                {status === 'generating' && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 50 }}
-                        className="absolute bottom-12 right-12 z-50 bg-zinc-900/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl flex items-center gap-4 max-w-sm"
-                    >
-                        <div className="relative h-10 w-10 flex-shrink-0">
-                            <svg className="absolute inset-0 w-full h-full animate-spin-slow" viewBox="0 0 100 100">
-                                <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="2" fill="none" className="text-zinc-800" />
-                                <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="2" fill="none" className="text-purple-500 stroke-dasharray-280 stroke-dashoffset-100 animate-dash" />
-                            </svg>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Loader2 className="h-5 w-5 text-white animate-spin" />
-                            </div>
-                        </div>
-                        <div>
-                            <h2 className="text-sm font-bold text-white tracking-widest uppercase">Developing Negative</h2>
-                            <p className="text-xs text-zinc-400 font-mono">Rendering High Fidelity Image...</p>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+
 
             <div className="w-full max-w-4xl h-full flex flex-col relative z-0">
                 <motion.h2

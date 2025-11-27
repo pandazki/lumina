@@ -9,6 +9,7 @@ I have completely refactored the Lumina website to transform it into a professio
 - **Tailwind CSS**: Configured with a custom "Zinc" dark theme for a sleek, neutral background that lets the images pop.
 - **Lucide React**: Replaced custom SVG icons with the standard Lucide icon set for consistency.
 - **Framer Motion**: Added smooth animations for loading states, transitions, and interactions.
+- **JSZip & FileSaver**: Added for bulk downloading of assets.
 
 ### 2. Design & Aesthetics ("AI App Texture")
 - **Dark Mode**: Enforced a deep dark theme (`bg-zinc-950` #09090b) with subtle background gradients and noise textures.
@@ -37,9 +38,13 @@ I have completely refactored the Lumina website to transform it into a professio
     - Fixed an issue where image generation would fail with `INVALID_ARGUMENT`. This was caused by sending `responseMimeType: 'image/png'` which is not supported by the preview model. Removed this parameter to fix the error.
     - Ensured the API request format is strictly compliant with the SDK's expectations.
     - Added detailed error logging to the browser console for easier debugging.
+- **History & Management**:
+    - **History Sidebar**: Added a collapsible sidebar on the right to track all generated images in the current session.
+    - **Regenerate**: Added a "Regenerate" button to re-roll the image using the exact same Director's Treatment.
+    - **Bulk Download**: Implemented "Download All Assets" which zips all images and JSON prompts from the session into a single file.
+    - **Delete**: Users can remove items from their history.
 - **Prompt Breakdown**: The prompt sections (Subject, Atmosphere, etc.) are now editable directly in the sidebar using a clean inline editing interface.
 - **JSON Source**: Added a "View Source" toggle to see the raw JSON data, catering to power users.
-- **Download**: Kept the download functionality for both Image and Prompt.
 
 ## Files Created/Modified
 
@@ -48,12 +53,14 @@ I have completely refactored the Lumina website to transform it into a professio
 - `components/ui/*`: Added Shadcn UI components.
 - `components/PromptSection.tsx`: New component for editable prompt sections with animations.
 - `components/CinematicTreatment.tsx`: New component for the immersive generation view with enhanced loading states.
+- `components/HistorySidebar.tsx`: New component for managing session history.
 - `components/HighlightedText.tsx`: Reusable component for rendering glowing text highlights.
 - `src/index.css`: Global styles and Tailwind variables.
 - `tailwind.config.js` & `postcss.config.js`: Configuration for the design system.
+- `types.ts`: Added `HistoryItem` interface.
 
 ## Verification
-- **Build**: Successfully built using `npm run build`.
+- **Build**: Verified build process (using `npm run build` or `bun run build`).
 - **Linting**: Fixed import paths and ensured type safety.
 
 The app is now ready for deployment or local development (`npm run dev`).

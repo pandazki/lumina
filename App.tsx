@@ -1,15 +1,31 @@
-import React, { useState, useRef } from 'react';
-import { PromptStructure, AppState } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import { PromptStructure, AppState, HistoryItem } from './types';
 import { expandPrompt, generateImage } from './services/geminiService';
-import { Sparkles, Aperture, Download, Eye, Loader2, Image as ImageIcon, Code } from 'lucide-react';
-import PromptSection from './components/PromptSection';
+import { PromptSection } from './components/PromptSection';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
+import { Card, CardContent } from './components/ui/card';
 import { ScrollArea } from './components/ui/scroll-area';
 import { Separator } from './components/ui/separator';
 import { cn } from './src/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CinematicTreatment } from './components/CinematicTreatment';
+import { HistorySidebar } from './components/HistorySidebar';
+import {
+  Wand2,
+  Image as ImageIcon,
+  Download,
+  RefreshCw,
+  Code,
+  ChevronRight,
+  Loader2,
+  History as HistoryIcon,
+  Trash2,
+  Maximize2,
+  X
+} from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const DEFAULT_PROMPT: PromptStructure = {
   subject: "",
@@ -24,303 +40,422 @@ const DEFAULT_PROMPT: PromptStructure = {
 const App: React.FC = () => {
   const [userInput, setUserInput] = useState("");
   const [promptData, setPromptData] = useState<PromptStructure>(DEFAULT_PROMPT);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [appState, setAppState] = useState<AppState>('idle');
-  const [showFullPrompt, setShowFullPrompt] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState("");
-  const imageRef = useRef<HTMLDivElement>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [showJson, setShowJson] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const handleInitialGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Scroll to bottom of prompt list when updating
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
+  const handleGenerate = async () => {
     if (!userInput.trim()) return;
 
     setAppState('expanding_prompt');
-    setLoadingMsg("Consulting the Director...");
-    setImageUrl(null); // Clear previous image
-    setPromptData(DEFAULT_PROMPT);
+    setPromptData(DEFAULT_PROMPT); // Reset
+    setGeneratedImage(null);
 
     try {
-      const expanded = await expandPrompt(userInput, undefined, undefined, (partial) => {
+      // 1. Expand Prompt (Streaming)
+      const finalPrompt = await expandPrompt(userInput, undefined, undefined, (partial) => {
         setPromptData(prev => ({ ...prev, ...partial }));
       });
-      setPromptData(expanded);
 
+      setPromptData(finalPrompt);
+
+      // 2. Generate Image
       setAppState('generating_image');
-      setLoadingMsg("Developing Raw Negative...");
+      const imageUrl = await generateImage(finalPrompt);
 
-      const url = await generateImage(expanded);
-      setImageUrl(url);
+      setGeneratedImage(imageUrl);
       setAppState('complete');
+
+      // 3. Add to History
+      const newItem: HistoryItem = {
+        id: crypto.randomUUID(),
+        promptData: finalPrompt,
+        imageUrl: imageUrl,
+        timestamp: Date.now()
+      };
+      setHistory(prev => [newItem, ...prev]);
+
     } catch (error) {
-      console.error(error);
+      console.error("Workflow failed:", error);
       setAppState('error');
-      setTimeout(() => setAppState('idle'), 3000);
     }
   };
 
-  const handleModification = async (section: keyof PromptStructure, instruction: string) => {
-    if (appState === 'generating_image' || appState === 'expanding_prompt') return;
+  const handleRegenerate = async () => {
+    if (!promptData.subject) return;
 
-    const originalState = appState;
-    setAppState('expanding_prompt');
-    setLoadingMsg(`Refining ${section}...`);
-
+    setAppState('generating_image');
     try {
-      // 1. Re-expand prompt with modification
-      const updatedPrompt = await expandPrompt(userInput, promptData, `For the ${section}, please: ${instruction}`, (partial) => {
-        setPromptData(prev => ({ ...prev, ...partial }));
-      });
-      setPromptData(updatedPrompt);
-
-      // 2. Auto-regenerate image
-      setAppState('generating_image');
-      setLoadingMsg("Reprocessing Scene...");
-      const url = await generateImage(updatedPrompt);
-      setImageUrl(url);
+      const imageUrl = await generateImage(promptData);
+      setGeneratedImage(imageUrl);
       setAppState('complete');
+
+      // Add to History
+      const newItem: HistoryItem = {
+        id: crypto.randomUUID(),
+        promptData: promptData,
+        imageUrl: imageUrl,
+        timestamp: Date.now()
+      };
+      setHistory(prev => [newItem, ...prev]);
     } catch (error) {
-      console.error(error);
+      console.error("Regeneration failed:", error);
       setAppState('error');
-      // Revert state if failed
-      setTimeout(() => setAppState(originalState === 'complete' ? 'complete' : 'idle'), 3000);
     }
   };
 
-  const handleDownload = () => {
-    if (!imageUrl) return;
-
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = `lumina-nanobanana-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Also download prompt
-    const blob = new Blob([JSON.stringify(promptData, null, 2)], { type: 'application/json' });
-    const textLink = document.createElement('a');
-    textLink.href = URL.createObjectURL(blob);
-    textLink.download = `lumina-prompt-${Date.now()}.json`;
-    document.body.appendChild(textLink);
-    textLink.click();
-    document.body.removeChild(textLink);
+  const handleUpdateSection = (section: keyof PromptStructure, value: string) => {
+    setPromptData(prev => ({ ...prev, [section]: value }));
   };
 
+  const handleDownload = (type: 'image' | 'json') => {
+    if (type === 'image' && generatedImage) {
+      const link = document.createElement('a');
+      link.href = generatedImage;
+      link.download = `lumina-creation-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (type === 'json') {
+      const blob = new Blob([JSON.stringify(promptData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lumina-prompt-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
 
+  const handleDownloadAll = async () => {
+    const zip = new JSZip();
 
-  // ...
+    // Add current session items from history
+    history.forEach((item, index) => {
+      // Add Image
+      const imgData = item.imageUrl.split(',')[1]; // Remove data:image/png;base64, prefix
+      zip.file(`image-${index}-${item.id}.png`, imgData, { base64: true });
 
-  const isCinematicMode = appState === 'expanding_prompt' || appState === 'generating_image';
+      // Add JSON
+      zip.file(`prompt-${index}-${item.id}.json`, JSON.stringify(item.promptData, null, 2));
+    });
+
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, `lumina-assets-${Date.now()}.zip`);
+  };
+
+  const handleDeleteHistory = (id: string) => {
+    setHistory(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleSelectHistory = (item: HistoryItem) => {
+    setPromptData(item.promptData);
+    setGeneratedImage(item.imageUrl);
+    setAppState('complete');
+    // setIsHistoryOpen(false); // Keep sidebar open as requested
+  };
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Close fullscreen on Escape
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
 
   return (
-    <div className="flex h-screen w-full bg-[#09090b] text-foreground overflow-hidden font-sans selection:bg-purple-500/30">
-      {/* Background Gradients */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-purple-900/10 blur-[150px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/10 blur-[150px]" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
-      </div>
+    <div className="h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-purple-500/30 overflow-hidden flex">
 
-      {/* Sidebar - Director's Treatment */}
-      {/* Hidden during cinematic mode */}
-      <aside className={cn(
-        "border-r border-white/10 bg-zinc-900/50 backdrop-blur-xl flex flex-col z-10 hidden lg:flex transition-all duration-500 ease-in-out overflow-hidden",
-        isCinematicMode ? "w-0 opacity-0 border-none" : "w-96 opacity-100"
+      {/* Main Content */}
+      <div className={cn(
+        "flex-1 flex flex-col transition-all duration-500 ease-in-out relative h-full",
+        isHistoryOpen ? "mr-80" : "mr-0"
       )}>
-        <div className="p-6 border-b border-white/10 min-w-[24rem]">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-yellow-400 to-orange-600 flex items-center justify-center shadow-[0_0_20px_rgba(255,165,0,0.3)] ring-1 ring-white/20">
-              <Aperture className="text-black h-6 w-6" />
+
+        {/* Header */}
+        <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-zinc-950/50 backdrop-blur-md z-10 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
+              <Wand2 className="h-4 w-4 text-white" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight leading-none text-white">Lumina</h1>
-              <span className="text-[10px] font-medium text-zinc-400 tracking-[0.2em] uppercase">Pro Studio</span>
-            </div>
+            <h1 className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
+              Lumina <span className="text-purple-500 text-xs font-mono uppercase tracking-widest ml-1">PRO</span>
+            </h1>
           </div>
-        </div>
 
-        <ScrollArea className="flex-1 min-w-[24rem]">
-          <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                <Sparkles className="h-3 w-3" /> Director's Treatment
-              </h2>
+          <div className="flex items-center gap-2">
+            {history.length > 0 && (
               <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-zinc-500 hover:text-white"
-                onClick={() => setShowFullPrompt(!showFullPrompt)}
-                title="View JSON Source"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAll}
+                className="hidden md:flex gap-2 border-white/10 hover:bg-white/5"
               >
-                <Code className="h-3 w-3" />
+                <Download className="w-4 h-4" />
+                Download All Assets
               </Button>
-            </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+              className={cn("text-zinc-400 hover:text-white", isHistoryOpen && "bg-white/10 text-white")}
+            >
+              <HistoryIcon className="w-5 h-5" />
+            </Button>
+          </div>
+        </header>
 
-            <AnimatePresence>
-              {showFullPrompt && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="p-3 bg-black/50 rounded-lg border border-white/10 text-[10px] font-mono text-green-400/80 overflow-x-auto whitespace-pre-wrap shadow-inner">
-                    {JSON.stringify(promptData, null, 2)}
+        <main className="flex-1 flex overflow-hidden relative h-[calc(100vh-4rem)]">
+          {/* Sidebar - Director's Treatment */}
+          <AnimatePresence mode="wait">
+            {(appState === 'idle' || appState === 'complete' || appState === 'error') && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: '400px', opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                className="border-r border-white/5 bg-zinc-900/30 backdrop-blur-sm flex flex-col z-20 h-full"
+              >
+                <div className="p-4 border-b border-white/5 flex items-center justify-between flex-shrink-0">
+                  <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Director's Treatment</h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setShowJson(!showJson)}
+                  >
+                    <Code className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                <ScrollArea className="flex-1">
+                  <div className="p-4 space-y-6">
+                    {showJson ? (
+                      <pre className="text-xs font-mono text-zinc-400 bg-black/50 p-4 rounded-lg overflow-auto">
+                        {JSON.stringify(promptData, null, 2)}
+                      </pre>
+                    ) : (
+                      Object.entries(promptData).map(([key, value]) => (
+                        <PromptSection
+                          key={key}
+                          title={key}
+                          content={value}
+                          isEditing={false}
+                          onUpdate={(val) => handleUpdateSection(key as keyof PromptStructure, val)}
+                        />
+                      ))
+                    )}
+                    <div ref={scrollRef} />
                   </div>
+                </ScrollArea>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Main Stage */}
+          <div className="flex-1 relative bg-zinc-950 flex flex-col h-full">
+            {/* Cinematic View Overlay */}
+            <AnimatePresence>
+              {(appState === 'expanding_prompt' || appState === 'generating_image') && (
+                <motion.div
+                  key="cinematic"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-30 bg-zinc-950"
+                >
+                  <CinematicTreatment
+                    promptData={promptData}
+                    status={appState === 'generating_image' ? 'generating' : 'streaming'}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <div className="space-y-4">
-              <PromptSection
-                title="Subject"
-                content={promptData.subject}
-                onEdit={(val) => handleModification('subject', val)}
-              />
-              <PromptSection
-                title="Atmosphere"
-                content={promptData.atmosphere}
-                onEdit={(val) => handleModification('atmosphere', val)}
-              />
-              <PromptSection
-                title="Environment"
-                content={promptData.environment}
-                onEdit={(val) => handleModification('environment', val)}
-              />
-              <div className="grid grid-cols-1 gap-4">
-                <PromptSection
-                  title="Camera"
-                  content={promptData.techSpecs}
-                  onEdit={(val) => handleModification('techSpecs', val)}
-                />
-                <PromptSection
-                  title="Color"
-                  content={promptData.colorGrading}
-                  onEdit={(val) => handleModification('colorGrading', val)}
-                />
+            {/* Content Area */}
+            <div className="flex-1 flex items-center justify-center p-8 relative">
+              {/* Background Texture */}
+              <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] filter contrast-150 brightness-100"></div>
+
+              <AnimatePresence mode="wait">
+                {generatedImage ? (
+                  <motion.div
+                    key={generatedImage}
+                    initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
+                    animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
+                    transition={{ duration: 0.5, ease: "circOut" }}
+                    className="relative group max-w-5xl w-full aspect-video rounded-lg overflow-hidden shadow-2xl shadow-black/50 ring-1 ring-white/10"
+                  >
+                    <img src={generatedImage} alt="Generated Result" className="w-full h-full object-cover" />
+
+                    {/* Overlay Actions */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end justify-between p-6">
+                      <div className="flex gap-2">
+                        <Button onClick={() => setIsFullscreen(true)} variant="secondary" size="icon" className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md">
+                          <Maximize2 className="w-4 h-4" />
+                        </Button>
+                        <Button onClick={() => handleDownload('image')} variant="secondary" size="icon" className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md">
+                          <Download className="w-4 h-4" />
+                        </Button>
+                        <Button onClick={() => handleDownload('json')} variant="secondary" size="icon" className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 backdrop-blur-md">
+                          <Code className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <Button onClick={handleRegenerate} variant="default" className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full px-6">
+                        <RefreshCw className="w-4 h-4" /> Regenerate
+                      </Button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  appState === 'idle' && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-center space-y-4 max-w-md"
+                    >
+                      <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 ring-1 ring-white/10">
+                        <ImageIcon className="w-8 h-8 text-zinc-600" />
+                      </div>
+                      <h2 className="text-2xl font-light text-zinc-300">Ready to Create</h2>
+                      <p className="text-zinc-500">Describe your vision, and Lumina will handle the direction, lighting, and composition.</p>
+                    </motion.div>
+                  )
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Input Bar */}
+            <div className="p-6 pb-8 max-w-4xl mx-auto w-full relative z-40">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+                <div className="relative flex gap-2 bg-zinc-900/90 backdrop-blur-xl p-2 rounded-xl border border-white/10 shadow-2xl items-end">
+                  <div className="relative flex-1 min-w-0">
+                    {/* Overlay for collapsed state (Truncated view) */}
+                    {!isInputFocused && (
+                      <div className="absolute inset-0 py-3 px-4 text-lg pointer-events-none truncate leading-relaxed text-zinc-100">
+                        {userInput || <span className="text-zinc-600">Describe your scene (e.g., 'A cyberpunk street food vendor in Tokyo, neon rain, cinematic lighting')...</span>}
+                      </div>
+                    )}
+
+                    <textarea
+                      ref={textareaRef}
+                      value={userInput}
+                      onChange={(e) => {
+                        setUserInput(e.target.value);
+                        // Auto-grow
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+                      }}
+                      onFocus={() => {
+                        setIsInputFocused(true);
+                        // Animate to full height without snapping to auto first
+                        if (textareaRef.current) {
+                          const targetHeight = Math.min(textareaRef.current.scrollHeight, 200);
+                          textareaRef.current.style.height = `${Math.max(targetHeight, 48)}px`;
+                        }
+                      }}
+                      onBlur={() => {
+                        setIsInputFocused(false);
+                        // Reset to single line
+                        if (textareaRef.current) {
+                          textareaRef.current.style.height = '3rem'; // h-12
+                        }
+                      }}
+                      // Hide placeholder in textarea since we show it in the overlay when collapsed
+                      // When focused, the overlay is hidden, so we need placeholder here too? 
+                      // Actually, when focused, we want standard behavior.
+                      placeholder={isInputFocused ? "Describe your scene (e.g., 'A cyberpunk street food vendor in Tokyo, neon rain, cinematic lighting')..." : ""}
+                      className={cn(
+                        "w-full bg-transparent border-none text-lg resize-none focus:ring-0 focus:outline-none placeholder:text-zinc-600 py-3 px-4 leading-relaxed transition-[height] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] scrollbar-hide",
+                        isInputFocused ? "max-h-[200px] overflow-y-auto opacity-100" : "h-12 overflow-hidden opacity-0 cursor-text"
+                      )}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleGenerate();
+                        }
+                      }}
+                      disabled={appState === 'expanding_prompt' || appState === 'generating_image'}
+                    />
+                  </div>
+                  <Button
+                    size="lg"
+                    onClick={handleGenerate}
+                    disabled={!userInput.trim() || appState === 'expanding_prompt' || appState === 'generating_image'}
+                    className="h-12 px-8 bg-white text-black hover:bg-zinc-200 transition-all font-medium min-w-[140px]"
+                  >
+                    {appState === 'idle' || appState === 'complete' || appState === 'error' ? (
+                      <>Generate <ChevronRight className="w-4 h-4 ml-2" /></>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">
+                          {appState === 'expanding_prompt' ? 'Directing...' : 'Developing...'}
+                        </span>
+                      </div>
+                    )}
+                  </Button>
+                </div>
               </div>
-              <PromptSection
-                title="Micro Details"
-                content={promptData.microDetails}
-                onEdit={(val) => handleModification('microDetails', val)}
-              />
             </div>
           </div>
-        </ScrollArea>
-      </aside>
+        </main>
+      </div>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative z-10 min-w-0">
-        {/* Header */}
-        <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-transparent backdrop-blur-sm">
-          <div className="lg:hidden flex items-center gap-2">
-            <Aperture className="h-5 w-5 text-orange-500" />
-            <span className="font-bold text-white">Lumina PRO</span>
-          </div>
-          <div className="flex items-center gap-2 ml-auto">
-            {appState === 'complete' && (
-              <Button variant="outline" size="sm" onClick={handleDownload} className="gap-2 border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300">
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download Assets</span>
-              </Button>
-            )}
-          </div>
-        </header>
+      {/* History Sidebar */}
+      <HistorySidebar
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        history={history}
+        onDelete={handleDeleteHistory}
+        onSelect={handleSelectHistory}
+      />
 
-        {/* Content Area */}
-        <div className="flex-1 flex items-center justify-center p-6 lg:p-10 overflow-hidden relative">
-          <AnimatePresence mode="wait">
-            {isCinematicMode ? (
-              <motion.div
-                key="cinematic"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="w-full h-full"
-              >
-                <CinematicTreatment
-                  promptData={promptData}
-                  status={appState === 'generating_image' ? 'generating' : 'streaming'}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="preview"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="relative w-full h-full max-w-5xl max-h-[calc(100vh-12rem)] rounded-2xl overflow-hidden border border-white/10 bg-zinc-950/50 shadow-2xl flex items-center justify-center group ring-1 ring-white/5"
-              >
-                {/* State: IDLE */}
-                {appState === 'idle' && (
-                  <div className="text-center opacity-40 flex flex-col items-center gap-4">
-                    <div className="h-24 w-24 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                      <ImageIcon className="h-10 w-10 text-zinc-400" />
-                    </div>
-                    <p className="text-lg font-light tracking-wide text-zinc-400">Ready to visualize your imagination</p>
-                  </div>
-                )}
+      {/* Fullscreen Overlay */}
+      <AnimatePresence>
+        {isFullscreen && generatedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-8"
+            onClick={() => setIsFullscreen(false)}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-6 right-6 text-zinc-400 hover:text-white hover:bg-white/10"
+              onClick={() => setIsFullscreen(false)}
+            >
+              <X className="w-8 h-8" />
+            </Button>
+            <motion.img
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              src={generatedImage}
+              alt="Fullscreen View"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-                {/* State: ERROR */}
-                {appState === 'error' && (
-                  <div className="text-red-400 text-center px-6">
-                    <p className="font-bold text-xl mb-2">Generation Failed</p>
-                    <p className="text-sm opacity-70">The connection to the creative matrix was interrupted.</p>
-                  </div>
-                )}
-
-                {/* State: COMPLETE */}
-                {imageUrl && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="relative w-full h-full"
-                  >
-                    <img
-                      src={imageUrl}
-                      alt="Generated Masterpiece"
-                      className="w-full h-full object-contain"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Floating Input Bar */}
-        <div className="absolute bottom-6 left-0 right-0 px-6 flex justify-center pointer-events-none z-30">
-          <div className="w-full max-w-3xl pointer-events-auto">
-            <form onSubmit={handleInitialGenerate} className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-xl p-2 flex items-center gap-2 shadow-2xl ring-1 ring-white/5">
-                <Input
-                  className="border-none bg-transparent focus-visible:ring-0 text-lg h-12 px-4 shadow-none placeholder:text-zinc-500 text-white"
-                  placeholder="Describe your vision (e.g., A cyberpunk ramen shop in rain...)"
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  disabled={appState === 'expanding_prompt' || appState === 'generating_image'}
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={!userInput || (appState !== 'idle' && appState !== 'complete' && appState !== 'error')}
-                  className={cn(
-                    "h-12 w-12 rounded-lg transition-all duration-300",
-                    userInput ? "bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-lg shadow-purple-500/25 text-white" : "bg-zinc-800 text-zinc-500"
-                  )}
-                >
-                  {appState === 'expanding_prompt' || appState === 'generating_image' ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </main>
     </div>
   );
 };

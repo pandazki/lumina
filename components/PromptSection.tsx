@@ -14,7 +14,7 @@ interface PromptSectionProps {
     className?: string;
 }
 
-const PromptSection: React.FC<PromptSectionProps> = ({ title, content, onEdit, className }) => {
+export const PromptSection: React.FC<PromptSectionProps> = ({ title, content, onEdit, className }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState("");
 
@@ -99,4 +99,4 @@ const PromptSection: React.FC<PromptSectionProps> = ({ title, content, onEdit, c
     );
 };
 
-export default PromptSection;
+
