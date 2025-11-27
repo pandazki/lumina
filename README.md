@@ -2,6 +2,8 @@
 
 **AI-Powered Cinematic Prompt Engineering**
 
+![Lumina PRO Screenshot](/lumina-screenshot.png)
+
 Lumina PRO is a sophisticated tool designed to transform simple concepts into highly detailed, premium-quality image generation prompts. It leverages the power of Google's Gemini 3.0 Pro model to act as a virtual visual director, expanding your ideas with cinematic lighting, composition, and technical specifications.
 
 ## Features

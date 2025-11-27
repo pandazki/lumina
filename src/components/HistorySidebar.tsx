@@ -70,31 +70,42 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                                             className="group relative rounded-lg overflow-hidden border border-white/10 bg-zinc-900/50 hover:border-purple-500/50 transition-colors"
                                         >
                                             <div
-                                                className="aspect-video w-full cursor-pointer relative"
-                                                onClick={() => onSelect(item)}
+                                                className="aspect-video w-full cursor-pointer relative bg-zinc-900"
+                                                onClick={() => item.status !== 'generating' && onSelect(item)}
                                             >
-                                                <img
-                                                    src={item.imageUrl}
-                                                    alt={item.promptData.subject}
-                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                                                    <p className="text-xs text-white font-medium line-clamp-1">{item.promptData.subject}</p>
-                                                    <p className="text-[10px] text-zinc-400">{new Date(item.timestamp).toLocaleTimeString()}</p>
-                                                </div>
+                                                {item.status === 'generating' ? (
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                                                        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                                        <span className="text-xs text-zinc-400 animate-pulse">Developing...</span>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <img
+                                                            src={item.imageUrl}
+                                                            alt={item.promptData.subject}
+                                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                        />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
+                                                            <p className="text-xs text-white font-medium line-clamp-1">{item.promptData.subject}</p>
+                                                            <p className="text-[10px] text-zinc-400">{new Date(item.timestamp).toLocaleTimeString()}</p>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
 
-                                            <Button
-                                                variant="destructive"
-                                                size="icon"
-                                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-100"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onDelete(item.id);
-                                                }}
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </Button>
+                                            {item.status !== 'generating' && (
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity scale-90 hover:scale-100"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDelete(item.id);
+                                                    }}
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </Button>
+                                            )}
                                         </motion.div>
                                     ))
                                 )}

@@ -26,4 +26,5 @@ export interface HistoryItem {
   prompt: string;
   imageUrl: string;
   promptData: any; // Store the full prompt structure
+  status?: 'generating' | 'complete' | 'error';
 }

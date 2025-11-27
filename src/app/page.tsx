@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { toast } from 'sonner';
 
 const DEFAULT_PROMPT: PromptStructure = {
   subject: "",
@@ -49,8 +50,17 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
 
+  // Track active session to prevent race conditions
+  const activeSessionId = useRef<string | null>(null);
+
+  // Check if ANY generation is in progress (for disabling inputs)
+  const isGlobalGenerating = history.some(item => item.status === 'generating') || appState === 'expanding_prompt';
+
   const handleGenerate = async () => {
     if (!userInput.trim()) return;
+
+    const sessionId = crypto.randomUUID();
+    activeSessionId.current = sessionId;
 
     setAppState('expanding_prompt');
     setPromptData(DEFAULT_PROMPT); // Reset
@@ -59,59 +69,122 @@ export default function Home() {
     try {
       // 1. Expand Prompt (Streaming)
       const finalPrompt = await expandPrompt(userInput, undefined, undefined, (partial) => {
-        setPromptData(prev => ({ ...prev, ...partial }));
+        // Only update if this session is still active
+        if (activeSessionId.current === sessionId) {
+          setPromptData(prev => ({ ...prev, ...partial }));
+        }
       });
 
-      setPromptData(finalPrompt);
-
-      // 2. Generate Image
-      setAppState('generating_image');
-      const imageUrl = await generateImage(finalPrompt);
-
-      setGeneratedImage(imageUrl);
-      setAppState('complete');
-
-      // 3. Add to History
-      const newItem: HistoryItem = {
-        id: crypto.randomUUID(),
+      // 2. Add Placeholder to History (Status: Generating)
+      const placeholderId = crypto.randomUUID();
+      const placeholderItem: HistoryItem = {
+        id: placeholderId,
         promptData: finalPrompt,
         prompt: userInput,
-        imageUrl: imageUrl,
-        timestamp: Date.now()
+        imageUrl: '', // Placeholder
+        timestamp: Date.now(),
+        status: 'generating'
       };
-      setHistory(prev => [newItem, ...prev]);
+      setHistory(prev => [placeholderItem, ...prev]);
+
+      if (activeSessionId.current === sessionId) {
+        setPromptData(finalPrompt);
+        setAppState('generating_image');
+      }
+
+      // 3. Generate Image
+      const imageUrl = await generateImage(finalPrompt);
+
+      // 4. Update History Item (Status: Complete)
+      setHistory(prev => prev.map(item =>
+        item.id === placeholderId
+          ? { ...item, imageUrl, status: 'complete' }
+          : item
+      ));
+
+      // 5. Update UI or Notify
+      if (activeSessionId.current === sessionId) {
+        setGeneratedImage(imageUrl);
+        setAppState('complete');
+      } else {
+        // Silent completion
+        toast.success("Image generation complete", {
+          action: {
+            label: "View",
+            onClick: () => {
+              activeSessionId.current = sessionId; // Re-claim session
+              setPromptData(finalPrompt);
+              setGeneratedImage(imageUrl);
+              setAppState('complete');
+            }
+          }
+        });
+      }
 
     } catch (error) {
       console.error("Workflow failed:", error);
-      setAppState('error');
+      // Remove placeholder on error
+      setHistory(prev => prev.filter(item => item.status !== 'generating')); // Or filter by ID if we tracked it
+
+      if (activeSessionId.current === sessionId) {
+        setAppState('error');
+      }
     }
   };
 
   const handleRegenerate = async () => {
     if (!promptData.subject) return;
 
+    const sessionId = crypto.randomUUID();
+    activeSessionId.current = sessionId;
+
     setAppState('generating_image');
+
+    // Add Placeholder
+    const placeholderId = crypto.randomUUID();
+    const placeholderItem: HistoryItem = {
+      id: placeholderId,
+      promptData: promptData,
+      prompt: userInput, // Might be empty if regenerated from history, but that's ok
+      imageUrl: '',
+      timestamp: Date.now(),
+      status: 'generating'
+    };
+    setHistory(prev => [placeholderItem, ...prev]);
+
     try {
       const imageUrl = await generateImage(promptData);
-      setGeneratedImage(imageUrl);
-      setAppState('complete');
 
-      // Add to History
-      const newItem: HistoryItem = {
-        id: crypto.randomUUID(),
-        promptData: promptData,
-        prompt: userInput,
-        imageUrl: imageUrl,
-        timestamp: Date.now()
-      };
-      setHistory(prev => [newItem, ...prev]);
+      // Update History
+      setHistory(prev => prev.map(item =>
+        item.id === placeholderId
+          ? { ...item, imageUrl, status: 'complete' }
+          : item
+      ));
+
+      if (activeSessionId.current === sessionId) {
+        setGeneratedImage(imageUrl);
+        setAppState('complete');
+      } else {
+        toast.success("Regeneration complete", {
+          action: {
+            label: "View",
+            onClick: () => {
+              activeSessionId.current = sessionId;
+              setGeneratedImage(imageUrl);
+              setAppState('complete');
+            }
+          }
+        });
+      }
     } catch (error) {
       console.error("Regeneration failed:", error);
-      setAppState('error');
+      setHistory(prev => prev.filter(item => item.id !== placeholderId));
+      if (activeSessionId.current === sessionId) {
+        setAppState('error');
+      }
     }
   };
-
-
 
   const handleDownload = (type: 'image' | 'json') => {
     if (type === 'image' && generatedImage) {
@@ -156,6 +229,9 @@ export default function Home() {
   };
 
   const handleSelectHistory = (item: HistoryItem) => {
+    // Start a new "viewing" session, invalidating any background generation for the main view
+    activeSessionId.current = crypto.randomUUID();
+
     setPromptData(item.promptData);
     setGeneratedImage(item.imageUrl);
     setAppState('complete');
@@ -292,7 +368,7 @@ export default function Home() {
                     initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
                     animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
                     exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
-                    transition={{ duration: 0.5, ease: "circOut" }}
+                    transition={{ duration: 0.15, ease: "circOut" }}
                     className="relative group max-w-5xl w-full aspect-video rounded-lg overflow-hidden shadow-2xl shadow-black/50 ring-1 ring-white/10"
                   >
                     <img src={generatedImage} alt="Generated Result" className="w-full h-full object-cover" />
@@ -310,8 +386,9 @@ export default function Home() {
                           <Code className="w-4 h-4" />
                         </Button>
                       </div>
-                      <Button onClick={handleRegenerate} variant="default" className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full px-6">
-                        <RefreshCw className="w-4 h-4" /> Regenerate
+                      <Button onClick={handleRegenerate} disabled={isGlobalGenerating} variant="default" className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full px-6 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {isGlobalGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Regenerate
                       </Button>
                     </div>
                   </motion.div>
@@ -342,13 +419,14 @@ export default function Home() {
                   <div className="relative flex-1 min-w-0">
                     {/* Overlay for collapsed state (Truncated view) */}
                     {!isInputFocused && (
-                      <div className="absolute inset-0 py-2.5 px-4 text-lg pointer-events-none truncate text-zinc-100">
+                      <div className="absolute inset-0 pt-3.5 pb-2.5 px-4 text-lg pointer-events-none truncate text-zinc-100 leading-6">
                         {userInput || <span className="text-zinc-600">Describe your scene...</span>}
                       </div>
                     )}
 
                     <textarea
                       ref={textareaRef}
+                      rows={1}
                       value={userInput}
                       onChange={(e) => {
                         setUserInput(e.target.value);
@@ -376,7 +454,7 @@ export default function Home() {
                       // Actually, when focused, we want standard behavior.
                       placeholder={isInputFocused ? "Describe your scene (e.g., 'A cyberpunk street food vendor in Tokyo...')" : ""}
                       className={cn(
-                        "w-full bg-transparent border-none text-lg resize-none focus:ring-0 focus:outline-none placeholder:text-zinc-600 py-2.5 px-4 transition-[height] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] scrollbar-hide",
+                        "w-full bg-transparent border-none text-lg resize-none focus:ring-0 focus:outline-none placeholder:text-zinc-600 pt-3.5 pb-2.5 px-4 leading-6 transition-[height] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] scrollbar-hide",
                         isInputFocused ? "max-h-[200px] overflow-y-auto opacity-100" : "h-12 overflow-hidden opacity-0 cursor-text"
                       )}
                       onKeyDown={(e) => {
@@ -385,24 +463,24 @@ export default function Home() {
                           handleGenerate();
                         }
                       }}
-                      disabled={appState === 'expanding_prompt' || appState === 'generating_image'}
+                      disabled={isGlobalGenerating}
                     />
                   </div>
                   <Button
                     size="lg"
                     onClick={handleGenerate}
-                    disabled={!userInput.trim() || appState === 'expanding_prompt' || appState === 'generating_image'}
+                    disabled={!userInput.trim() || isGlobalGenerating}
                     className="h-12 px-8 bg-white text-black hover:bg-zinc-200 transition-all font-medium min-w-[140px]"
                   >
-                    {appState === 'idle' || appState === 'complete' || appState === 'error' ? (
-                      <>Generate <ChevronRight className="w-4 h-4 ml-2" /></>
-                    ) : (
+                    {isGlobalGenerating ? (
                       <div className="flex items-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         <span className="text-sm">
                           {appState === 'expanding_prompt' ? 'Directing...' : 'Developing...'}
                         </span>
                       </div>
+                    ) : (
+                      <>Generate <ChevronRight className="w-4 h-4 ml-2" /></>
                     )}
                   </Button>
                 </div>

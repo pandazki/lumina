@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "AI-Powered Cinematic Prompt Engineering",
 };
 
+import { Toaster } from 'sonner';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <Toaster theme="dark" position="top-center" />
       </body>
     </html>
   );
