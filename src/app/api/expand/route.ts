@@ -21,8 +21,9 @@ const PROMPT_SCHEMA: Schema = {
         techSpecs: { type: Type.STRING, description: "Camera, lens, shutter speed, ISO, aperture settings." },
         colorGrading: { type: Type.STRING, description: "Post-processing notes, color palette, grading style." },
         composition: { type: Type.STRING, description: "Framing, angles, leading lines, focus points." },
+        referenceAnalysis: { type: Type.STRING, description: "Directives on how to use the reference images (e.g., 'Extract color palette from image 1'). No explanations." },
     },
-    required: ["subject", "environment", "atmosphere", "microDetails", "techSpecs", "colorGrading", "composition"],
+    required: ["subject", "environment", "atmosphere", "microDetails", "techSpecs", "colorGrading", "composition", "referenceAnalysis"],
 };
 
 export async function POST(req: NextRequest) {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { userInput, currentPrompt, modification } = await req.json();
+        const { userInput, currentPrompt, modification, images } = await req.json();
         const ai = new GoogleGenAI({ apiKey });
 
         const systemInstruction = `
@@ -43,7 +44,8 @@ export async function POST(req: NextRequest) {
       - Analyze the user's request for any specific ARTISTIC STYLE (e.g., "Manga", "Oil Painting", "3D Render", "Pixel Art").
       - If a style is specified, YOU MUST ADAPT ALL DESCRIPTIONS TO MATCH THAT STYLE.
       - If NO style is specified, default to "Impossibly Photorealistic" (National Geographic style).
-  
+      - **IF REFERENCE IMAGES ARE PROVIDED**: Analyze them carefully. In the 'referenceAnalysis' field, provide CLEAR DIRECTIVES on how to use these images. Do NOT explain what you did. Instead, instruct the image generator on what specific elements to extract or mimic (e.g., "Use the lighting setup from the first image", "Copy the character pose from the reference", "Adopt the color palette of the provided landscape").
+
       REFERENCE STYLE (Use this level of detail, but adapt the content to the requested style):
       ${REFERENCE_PROMPT}
   
@@ -56,16 +58,34 @@ export async function POST(req: NextRequest) {
       6. If modifying, keep the previous context but apply the user's specific change requested.
     `;
 
-        let userContent = `Create a comprehensive prompt for: "${userInput}"`;
+        let userContent: any[] = [{ text: `Create a comprehensive prompt for: "${userInput}"` }];
+
+        if (images && Array.isArray(images) && images.length > 0) {
+            userContent.push({ text: "Here are the reference images provided by the user. Please analyze them and incorporate their style/elements:" });
+            images.forEach((img: string) => {
+                // img is base64 string "data:image/png;base64,..."
+                const match = img.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+                if (match) {
+                    userContent.push({
+                        inlineData: {
+                            mimeType: match[1],
+                            data: match[2]
+                        }
+                    });
+                }
+            });
+        }
 
         if (currentPrompt && modification) {
-            userContent = `
+            userContent = [{
+                text: `
         Based on the following existing prompt structure:
         ${JSON.stringify(currentPrompt)}
   
         Please modify it according to this request: "${modification}"
         Keep the rest of the high-quality details consistent.
-      `;
+      `
+            }];
         }
 
         const result = await ai.models.generateContentStream({

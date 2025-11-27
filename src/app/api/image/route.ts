@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { promptData } = await req.json();
+        const { promptData, images } = await req.json();
         const ai = new GoogleGenAI({ apiKey });
 
         // Construct the monolithic prompt from the structured data
@@ -26,13 +26,27 @@ export async function POST(req: NextRequest) {
 
         console.log("Generating image with prompt length:", fullPrompt.length);
 
+        const contents: any[] = [{ text: fullPrompt }];
+
+        if (images && Array.isArray(images) && images.length > 0) {
+            images.forEach((img: string) => {
+                const match = img.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+                if (match) {
+                    contents.unshift({ // Add images BEFORE text
+                        inlineData: {
+                            mimeType: match[1],
+                            data: match[2]
+                        }
+                    });
+                }
+            });
+        }
+
         const response = await ai.models.generateContent({
             model: 'gemini-3-pro-image-preview',
             contents: [
                 {
-                    parts: [
-                        { text: fullPrompt }
-                    ]
+                    parts: contents
                 }
             ],
             config: {

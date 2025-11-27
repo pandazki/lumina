@@ -11,6 +11,7 @@ export interface PromptStructure {
   techSpecs: string;
   colorGrading: string;
   composition: string;
+  referenceAnalysis?: string;
 }
 
 export type AppState =
@@ -26,5 +27,6 @@ export interface HistoryItem {
   prompt: string;
   imageUrl: string;
   promptData: any; // Store the full prompt structure
+  referenceImages?: string[]; // Base64 strings
   status?: 'generating' | 'complete' | 'error';
 }

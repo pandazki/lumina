@@ -53,8 +53,45 @@ export default function Home() {
   // Track active session to prevent race conditions
   const activeSessionId = useRef<string | null>(null);
 
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
+
   // Check if ANY generation is in progress (for disabling inputs)
   const isGlobalGenerating = history.some(item => item.status === 'generating') || appState === 'expanding_prompt';
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    const newImages: string[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve) => {
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+          newImages.push(base64);
+        }
+      }
+    }
+
+    if (newImages.length > 0) {
+      setReferenceImages(prev => {
+        const combined = [...prev, ...newImages];
+        if (combined.length > 5) {
+          toast.error("Maximum 5 reference images allowed");
+          return combined.slice(0, 5);
+        }
+        return combined;
+      });
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setReferenceImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleGenerate = async () => {
     if (!userInput.trim()) return;
@@ -68,7 +105,8 @@ export default function Home() {
 
     try {
       // 1. Expand Prompt (Streaming)
-      const finalPrompt = await expandPrompt(userInput, undefined, undefined, (partial) => {
+      const currentImages = [...referenceImages]; // Capture current images
+      const finalPrompt = await expandPrompt(userInput, undefined, undefined, currentImages, (partial) => {
         // Only update if this session is still active
         if (activeSessionId.current === sessionId) {
           setPromptData(prev => ({ ...prev, ...partial }));
@@ -83,9 +121,11 @@ export default function Home() {
         prompt: userInput,
         imageUrl: '', // Placeholder
         timestamp: Date.now(),
-        status: 'generating'
+        status: 'generating',
+        referenceImages: currentImages
       };
       setHistory(prev => [placeholderItem, ...prev]);
+      // setReferenceImages([]); // Don't clear images, keep them for context/tweaking just like userInput
 
       if (activeSessionId.current === sessionId) {
         setPromptData(finalPrompt);
@@ -93,7 +133,7 @@ export default function Home() {
       }
 
       // 3. Generate Image
-      const imageUrl = await generateImage(finalPrompt);
+      const imageUrl = await generateImage(finalPrompt, currentImages); // Pass original images (before clear, but we need to capture them)
 
       // 4. Update History Item (Status: Complete)
       setHistory(prev => prev.map(item =>
@@ -145,15 +185,16 @@ export default function Home() {
     const placeholderItem: HistoryItem = {
       id: placeholderId,
       promptData: promptData,
-      prompt: userInput, // Might be empty if regenerated from history, but that's ok
+      prompt: userInput,
       imageUrl: '',
       timestamp: Date.now(),
-      status: 'generating'
+      status: 'generating',
+      referenceImages: referenceImages
     };
     setHistory(prev => [placeholderItem, ...prev]);
 
     try {
-      const imageUrl = await generateImage(promptData);
+      const imageUrl = await generateImage(promptData, referenceImages);
 
       // Update History
       setHistory(prev => prev.map(item =>
@@ -234,8 +275,10 @@ export default function Home() {
 
     setPromptData(item.promptData);
     setGeneratedImage(item.imageUrl);
+    setUserInput(item.prompt);
+    setReferenceImages(item.referenceImages || []);
     setAppState('complete');
-    // setIsHistoryOpen(false); // Keep sidebar open as requested
+    setIsHistoryOpen(false); // Keep sidebar open as requested
   };
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -326,6 +369,7 @@ export default function Home() {
                           key={key}
                           title={key}
                           content={value}
+                          images={key === 'referenceAnalysis' ? referenceImages : undefined}
                         />
                       ))
                     )}
@@ -346,12 +390,11 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 z-30 bg-zinc-950"
+                  className="absolute inset-0 z-30 bg-zinc-950 flex flex-col"
                 >
-                  <CinematicTreatment
-                    promptData={promptData}
-                    status={appState === 'generating_image' ? 'generating' : 'streaming'}
-                  />
+                  <div className="flex-1 relative overflow-hidden">
+                    <CinematicTreatment promptData={promptData} status={appState === 'generating_image' ? 'generating' : 'streaming'} referenceImages={referenceImages} />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -418,11 +461,74 @@ export default function Home() {
                 <div className="relative flex gap-2 bg-zinc-900/90 backdrop-blur-xl py-2 pl-2 pr-3 rounded-xl border border-white/10 shadow-2xl items-center">
                   <div className="relative flex-1 min-w-0">
                     {/* Overlay for collapsed state (Truncated view) */}
-                    {!isInputFocused && (
-                      <div className="absolute inset-0 pt-3.5 pb-2.5 px-4 text-lg pointer-events-none truncate text-zinc-100 leading-6">
-                        {userInput || <span className="text-zinc-600">Describe your scene...</span>}
-                      </div>
-                    )}
+                    <AnimatePresence>
+                      {!isInputFocused && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute inset-0 flex items-start px-4 pointer-events-none"
+                        >
+                          {/* Mini Previews */}
+                          {referenceImages.length > 0 && (
+                            <div className="flex -space-x-2 mr-3 shrink-0 transition-all duration-300 self-center">
+                              {referenceImages.slice(0, 3).map((img, idx) => (
+                                <div key={idx} className="w-8 h-8 rounded-md border border-white/20 bg-zinc-800 overflow-hidden shadow-lg relative z-[10]">
+                                  <img src={img} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                              {referenceImages.length > 3 && (
+                                <div className="w-8 h-8 rounded-md border border-white/20 bg-zinc-800 flex items-center justify-center text-[10px] text-zinc-400 shadow-lg relative z-[0]">
+                                  +{referenceImages.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="truncate text-lg text-zinc-100 leading-6 pt-3.5 w-full">
+                            {userInput || <span className="text-zinc-600">Describe your scene...</span>}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Reference Images Preview */}
+                    <AnimatePresence>
+                      {isInputFocused && referenceImages.length > 0 && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-4 pt-4 pb-2 flex gap-2 overflow-x-auto scrollbar-hide">
+                            {referenceImages.map((img, idx) => (
+                              <motion.div
+                                key={idx}
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="relative group flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border border-white/10 bg-black/50"
+                              >
+                                <img src={img} alt={`Ref ${idx}`} className="w-full h-full object-cover" />
+                                <button
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveImage(idx);
+                                  }}
+                                  className="absolute top-0.5 right-0.5 bg-black/80 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     <textarea
                       ref={textareaRef}
@@ -434,6 +540,7 @@ export default function Home() {
                         e.target.style.height = 'auto';
                         e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
                       }}
+                      onPaste={handlePaste}
                       onFocus={() => {
                         setIsInputFocused(true);
                         // Animate to full height without snapping to auto first

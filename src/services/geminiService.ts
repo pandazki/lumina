@@ -4,13 +4,14 @@ export const expandPrompt = async (
   userInput: string,
   currentPrompt?: PromptStructure,
   modification?: string,
+  images?: string[],
   onUpdate?: (partial: Partial<PromptStructure>) => void
 ): Promise<PromptStructure> => {
 
   const response = await fetch('/api/expand', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userInput, currentPrompt, modification })
+    body: JSON.stringify({ userInput, currentPrompt, modification, images })
   });
 
   if (!response.ok) {
@@ -31,7 +32,7 @@ export const expandPrompt = async (
     accumulatedText += chunkText;
 
     // Robust Partial JSON Parsing (Same logic as before, but client-side)
-    const keys = ["subject", "environment", "atmosphere", "microDetails", "techSpecs", "colorGrading", "composition"];
+    const keys = ["subject", "environment", "atmosphere", "microDetails", "techSpecs", "colorGrading", "composition", "referenceAnalysis"];
     const keyIndices: { key: string, start: number, contentStart: number }[] = [];
 
     // 1. Find start positions of all known keys
@@ -104,16 +105,17 @@ export const expandPrompt = async (
       techSpecs: partialStructure.techSpecs || "",
       colorGrading: partialStructure.colorGrading || "",
       composition: partialStructure.composition || "",
+      referenceAnalysis: partialStructure.referenceAnalysis || "",
       ...partialStructure
     } as PromptStructure;
   }
 };
 
-export const generateImage = async (promptData: PromptStructure): Promise<string> => {
+export const generateImage = async (promptData: PromptStructure, images?: string[]): Promise<string> => {
   const response = await fetch('/api/image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ promptData })
+    body: JSON.stringify({ promptData, images })
   });
 
   if (!response.ok) {

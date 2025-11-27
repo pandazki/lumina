@@ -8,9 +8,10 @@ import { Loader2, Zap } from 'lucide-react';
 interface CinematicTreatmentProps {
     promptData: PromptStructure;
     status: 'streaming' | 'generating';
+    referenceImages?: string[];
 }
 
-export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptData, status }) => {
+export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptData, status, referenceImages }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const hasStarted = (Object.values(promptData) as string[]).some(val => val.length > 0);
 
@@ -29,6 +30,7 @@ export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptDa
         { title: "Color", content: promptData.colorGrading },
         { title: "Micro Details", content: promptData.microDetails },
         { title: "Composition", content: promptData.composition },
+        { title: "Reference Analysis", content: promptData.referenceAnalysis },
     ];
 
     return (
@@ -84,6 +86,17 @@ export const CinematicTreatment: React.FC<CinematicTreatmentProps> = ({ promptDa
                                     </h3>
                                     <div className="pl-11 text-lg md:text-xl lg:text-2xl font-light leading-relaxed text-zinc-200">
                                         <HighlightedText text={section.content} />
+
+                                        {/* Render Reference Images if this is the Reference Analysis section */}
+                                        {section.title === "Reference Analysis" && referenceImages && referenceImages.length > 0 && (
+                                            <div className="mt-6 flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                                                {referenceImages.map((img, idx) => (
+                                                    <div key={idx} className="relative flex-shrink-0 w-32 h-32 rounded-lg overflow-hidden border border-white/10 bg-black/50 shadow-lg">
+                                                        <img src={img} alt={`Reference ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </motion.div>
                             )

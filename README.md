@@ -11,6 +11,8 @@ Lumina PRO is a sophisticated tool designed to transform simple concepts into hi
 ## Features
 
 -   **Intelligent Prompt Expansion**: Converts brief inputs into comprehensive "Director's Treatment" prompts.
+-   **Reference Image Support**: Upload up to 5 reference images to guide the style, composition, and lighting.
+    ![Reference Image Support](./assets/lumina-image-ref-screenshot.png)
 -   **Cinematic Visualization**: Generates high-fidelity previews using Gemini's image generation capabilities.
 -   **History & Management**: Automatically saves your creations with options to regenerate, delete, or download.
 -   **Bulk Export**: Download all your generated assets (images and JSON prompts) in a single ZIP file.
