@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Cinzel } from "next/font/google"; // Import Cinzel
 import "./globals.css";
 import { Toaster } from 'sonner';
@@ -27,6 +27,9 @@ export const metadata: Metadata = {
     shortcut: '/icon.png',
     apple: '/icon.png',
   },
+};
+
+export const viewport: Viewport = {
   themeColor: '#09090b',
 };
 
